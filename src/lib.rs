@@ -42,13 +42,33 @@ impl ActionKV {
     }
     fn process_record<R: Read>(f: &mut R) -> io::Result<KeyValuePair> {
         let mut buffer = [0; 4];
-        f.read_exact(&mut buffer).expect("failed to read checksum");
+        f.read_exact(&mut buffer).expect("failed to read check_sum");
         let saved_checksum = u32::from_le_bytes(buffer);
-        f.read_exact(&mut buffer);
+        f.read_exact(&mut buffer)
+            .expect("failed to read key length");
         let key_len = u32::from_le_bytes(buffer);
-        f.read_exact(&mut buffer);
+        f.read_exact(&mut buffer)
+            .expect("failed to read val lenght");
         let val_len = u32::from_le_bytes(buffer);
         let data_len = key_len + val_len;
+
+        let mut data = ByteString::with_capacity(data_len as usize);
+        {
+            f.by_ref().take(data_len as u64).read_to_end(&mut data)?;
+        }
+
+        debug_assert_eq!(data.len(), data_len as usize);
+
+        let checksum = crc32::crc32(0, &data);
+        if checksum != saved_checksum {
+            panic!(
+                "data corruption encountered ({:08x} != {:08x})",
+                checksum, saved_checksum
+            );
+        }
+        let value = data.split_off(key_len as usize);
+        let key = data;
+
         Ok(KeyValuePair {
             key: key,
             value: value,
