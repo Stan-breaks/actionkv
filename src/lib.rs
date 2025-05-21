@@ -37,6 +37,17 @@ impl ActionKV {
         loop {
             let position = f.seek(SeekFrom::Current(0))?;
             let maybe_kv = ActionKV::process_record(&mut f);
+
+            let kv = match maybe_kv {
+                Ok(kv) => kv,
+                Err(err) => match err.kind() {
+                    io::ErrorKind::UnexpectedEof => {
+                        break;
+                    }
+                    _ => return Err(err),
+                },
+            };
+            self.index.insert(kv.key, kv.value);
         }
         Ok(())
     }
@@ -48,7 +59,7 @@ impl ActionKV {
             .expect("failed to read key length");
         let key_len = u32::from_le_bytes(buffer);
         f.read_exact(&mut buffer)
-            .expect("failed to read val lenght");
+            .expect("failed to read val length");
         let val_len = u32::from_le_bytes(buffer);
         let data_len = key_len + val_len;
 
