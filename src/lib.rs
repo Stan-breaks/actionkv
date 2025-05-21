@@ -1,14 +1,41 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashMap,
+    fs::{File, OpenOptions},
+    io::{self, BufReader, Seek, SeekFrom},
+    path::Path,
+};
+
+type ByteString = Vec<u8>;
+type ByteStr = [u8];
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct KeyValuePair {
+    pub key: ByteString,
+    pub value: ByteString,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Debug)]
+pub struct ActionKV {
+    f: File,
+    pub index: HashMap<ByteString, u64>,
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+impl ActionKV {
+    pub fn open(path: &Path) -> io::Result<Self> {
+        let f = OpenOptions::new()
+            .read(true)
+            .create(true)
+            .append(true)
+            .open(path)?;
+        let index = HashMap::new();
+        Ok(ActionKV { f: f, index: index })
+    }
+    pub fn load(&mut self) -> io::Result<()> {
+        let mut f = BufReader::new(&mut self.f);
+        loop {
+            let position = f.seek(SeekFrom::Current(0))?;
+        }
+        Ok(())
     }
 }
