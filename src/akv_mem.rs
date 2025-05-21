@@ -1,3 +1,5 @@
+use actionkv::ActionKV;
+
 #[cfg(target_os = "windows")]
 const USAGE: &str = "
 USAGE:
@@ -22,4 +24,25 @@ fn main() {
     let action: &str = args.get(2).expect(&USAGE).as_ref();
     let key: &str = args.get(3).expect(&USAGE).as_ref();
     let maybe_value = args.get(4);
+
+    let path = std::path::Path::new(&fname);
+    let mut store = ActionKV::open(path).expect("unable to open file");
+    store.load().expect("unable to load data");
+
+    match action {
+        "get" => match store.index.get(key).unwrap() {
+            None => eprintln!("{:?} not found", key),
+            Some(value) => println!("{:?}", value),
+        },
+        "delete" => store.index.remove(key),
+        "insert" => {
+            let value = maybe_value.expect(&USAGE).as_ref();
+            store.index.insert(key, value)
+        }
+        "update" => {
+            let value = maybe_value.expect(&USAGE).as_ref();
+            store.index.insert(key, value).unwrap()
+        }
+        _ => eprintln!("{}", &USAGE),
+    }
 }

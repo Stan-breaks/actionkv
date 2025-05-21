@@ -1,4 +1,4 @@
-use byteorder::LittleEndian;
+use crc32fast::Hasher;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -8,7 +8,6 @@ use std::{
 };
 
 type ByteString = Vec<u8>;
-type ByteStr = [u8];
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KeyValuePair {
@@ -47,7 +46,7 @@ impl ActionKV {
                     _ => return Err(err),
                 },
             };
-            self.index.insert(kv.key, kv.value);
+            self.index.insert(kv.key, position);
         }
         Ok(())
     }
@@ -70,7 +69,9 @@ impl ActionKV {
 
         debug_assert_eq!(data.len(), data_len as usize);
 
-        let checksum = crc32::crc32(0, &data);
+        let mut hasher = Hasher::new();
+        hasher.update(&data);
+        let checksum = hasher.finalize();
         if checksum != saved_checksum {
             panic!(
                 "data corruption encountered ({:08x} != {:08x})",
