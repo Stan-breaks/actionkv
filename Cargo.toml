@@ -1,0 +1,12 @@
+[package]
+name = "actionkv"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+byteorder = "1.5.0"
+crc = "3.3.0"
+
+[[bin]]
+name = "akv_mem"
+path = "src/akv_mem.rs"
