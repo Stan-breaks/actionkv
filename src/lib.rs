@@ -133,4 +133,12 @@ impl ActionKV {
         self.index.insert(key.to_vec(), position);
         Ok(())
     }
+    #[inline]
+    pub fn delete(&mut self, key: &Bytestr) -> Result<()> {
+        self.insert(key, b"")
+    }
+    #[inline]
+    pub fn update(&mut self, key: &Bytestr, value: &Bytestr) -> Result<()> {
+        self.insert(key, value)
+    }
 }
