@@ -1,13 +1,15 @@
+use byteorder::{LittleEndian, WriteBytesExt};
 use crc32fast::Hasher;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{self, BufReader, Read, Seek, SeekFrom},
+    io::{self, BufReader, BufWriter, Read, Result, Seek, SeekFrom, Write},
     path::Path,
 };
 
 type ByteString = Vec<u8>;
+type Bytestr = [u8];
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KeyValuePair {
@@ -50,7 +52,7 @@ impl ActionKV {
         }
         Ok(())
     }
-    fn process_record<R: Read>(f: &mut R) -> io::Result<KeyValuePair> {
+    fn process_record<R: Read>(f: &mut R) -> Result<KeyValuePair> {
         let mut buffer = [0; 4];
         f.read_exact(&mut buffer).expect("failed to read check_sum");
         let saved_checksum = u32::from_le_bytes(buffer);
@@ -85,5 +87,50 @@ impl ActionKV {
             key: key,
             value: value,
         })
+    }
+    pub fn get(&mut self, key: &Bytestr) -> Result<Option<ByteString>> {
+        let position = match self.index.get(key) {
+            None => return Ok(None),
+            Some(position) => *position,
+        };
+        let kv = self.get_at(position)?;
+        Ok(Some(kv.value))
+    }
+    pub fn get_at(&mut self, position: u64) -> Result<KeyValuePair> {
+        let mut f = BufReader::new(&mut self.f);
+        f.seek(SeekFrom::Start(position))?;
+        let kv = ActionKV::process_record(&mut f)?;
+        Ok(kv)
+    }
+    pub fn insert_but_ignore_index(&mut self, key: &Bytestr, value: &Bytestr) -> io::Result<u64> {
+        let mut f = BufWriter::new(&mut self.f);
+
+        let key_len = key.len();
+        let val_len = value.len();
+        let mut tmp = ByteString::with_capacity(key_len + val_len);
+        for byte in key {
+            tmp.push(*byte);
+        }
+        for byte in value {
+            tmp.push(*byte);
+        }
+        let mut hasher = Hasher::new();
+        hasher.update(&tmp);
+        let checksum = hasher.finalize();
+
+        let next_byte = SeekFrom::End(0);
+        let current_position = f.seek(SeekFrom::Current(0))?;
+        f.seek(next_byte)?;
+        f.write_u32::<LittleEndian>(checksum)?;
+        f.write_u32::<LittleEndian>(key_len as u32)?;
+        f.write_u32::<LittleEndian>(val_len as u32)?;
+        f.write_all(&tmp)?;
+
+        Ok(current_position)
+    }
+    pub fn insert(&mut self, key: &Bytestr, value: &Bytestr) -> Result<()> {
+        let position = self.insert_but_ignore_index(key, value)?;
+        self.index.insert(key.to_vec(), position);
+        Ok(())
     }
 }
