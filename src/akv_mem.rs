@@ -42,6 +42,11 @@ fn main() {
             let value = maybe_value.expect(&USAGE).as_ref();
             store.insert(key, value).unwrap()
         }
+        "delete" => store.delete(key).unwrap(),
+        "update" => {
+            let value = maybe_value.expect(&USAGE).as_ref();
+            store.update(key, value).unwrap()
+        }
         _ => eprintln!("{}", &USAGE),
     };
 }
