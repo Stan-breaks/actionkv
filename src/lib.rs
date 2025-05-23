@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{self, BufReader, BufWriter, Read, Result, Seek, SeekFrom, Write},
+    io::{self, BufReader, BufWriter, ErrorKind, Read, Result, Seek, SeekFrom, Write},
     path::Path,
 };
 
@@ -101,6 +101,27 @@ impl ActionKV {
         f.seek(SeekFrom::Start(position))?;
         let kv = ActionKV::process_record(&mut f)?;
         Ok(kv)
+    }
+    pub fn find(&mut self, target: &Bytestr) -> Result<Option<(u64, ByteString)>> {
+        let mut f = BufReader::new(&mut self.f);
+        let mut found: Option<(u64, ByteString)> = None;
+        loop {
+            let position = f.seek(SeekFrom::Current(0))?;
+            let maybe_kv = ActionKV::process_record(&mut f);
+            let kv = match maybe_kv {
+                Ok(kv) => kv,
+                Err(err) => match err.kind() {
+                    ErrorKind::UnexpectedEof => {
+                        break;
+                    }
+                    _ => return Err(err),
+                },
+            };
+            if kv.key == target {
+                found = Some((position, kv.value))
+            }
+        }
+        Ok(found)
     }
     pub fn insert_but_ignore_index(&mut self, key: &Bytestr, value: &Bytestr) -> io::Result<u64> {
         let mut f = BufWriter::new(&mut self.f);
