@@ -54,7 +54,9 @@ impl ActionKV {
     }
     fn process_record<R: Read>(f: &mut R) -> Result<KeyValuePair> {
         let mut buffer = [0; 4];
-        f.read_exact(&mut buffer).expect("failed to read check_sum");
+        if let Err(e) = f.read_exact(&mut buffer) {
+            return Err(e);
+        }
         let saved_checksum = u32::from_le_bytes(buffer);
         f.read_exact(&mut buffer)
             .expect("failed to read key length");
@@ -129,12 +131,9 @@ impl ActionKV {
         let key_len = key.len();
         let val_len = value.len();
         let mut tmp = ByteString::with_capacity(key_len + val_len);
-        for byte in key {
-            tmp.push(*byte);
-        }
-        for byte in value {
-            tmp.push(*byte);
-        }
+        tmp.extend_from_slice(key);
+        tmp.extend_from_slice(value);
+
         let mut hasher = Hasher::new();
         hasher.update(&tmp);
         let checksum = hasher.finalize();
