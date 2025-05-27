@@ -58,7 +58,8 @@ fn main() {
                 None => eprintln!("{:?} not found", key),
                 Some(&i) => {
                     let kv = store.get_at(i).unwrap();
-                    println!("{:?}", kv.value)
+                    let value = String::from_utf8(kv.value.clone()).unwrap();
+                    println!("{:?}", (value))
                 }
             }
         }
